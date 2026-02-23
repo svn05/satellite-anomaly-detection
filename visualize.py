@@ -210,7 +210,7 @@ def main():
     import torch
 
     train_norm, test_norm, _ = normalize_data(train_data, test_data)
-    train_errors_raw = np.load(os.path.join(results_dir, "test_errors.npy"))
+    train_errors_raw = np.load(os.path.join(results_dir, "train_errors.npy")) if os.path.exists(os.path.join(results_dir, "train_errors.npy")) else test_errors
 
     sigma = config["detection"]["threshold_sigma"]
     threshold = np.mean(test_errors) + sigma * np.std(test_errors)
