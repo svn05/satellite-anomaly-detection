@@ -1,6 +1,6 @@
 # Satellite Telemetry Anomaly Detection
 
-An **LSTM-Autoencoder** for detecting anomalies in satellite sensor telemetry (temperature, voltage, gyroscope) trained on NASA **SMAP/MSL** datasets. Achieves **92%+ F1-score** with reconstruction error thresholding and confidence-band visualization.
+An **LSTM-Autoencoder** for detecting anomalies in satellite sensor telemetry trained on NASA **SMAP** (Soil Moisture Active Passive) satellite data. Features per-channel anomaly scoring, adaptive confidence bands, and interactive Gradio visualization.
 
 ## Overview
 
@@ -9,19 +9,31 @@ Satellite telemetry data often contains subtle anomalies indicating sensor malfu
 ## Architecture
 
 ```
-Input Window (100 × 25) → LSTM Encoder (2 layers, 128 hidden)
-    → Latent Space (64-dim) → LSTM Decoder → Reconstructed Window
+Input Window (50 × N) → LSTM Encoder (2 layers, 64 hidden)
+    → Latent Space (32-dim) → LSTM Decoder → Reconstructed Window
     → Reconstruction Error (MSE) → Threshold Detection → Anomaly Labels
+    → Per-Channel Scoring → Root Cause Analysis
 ```
 
-## Results
+## Results (NASA SMAP Data)
 
 | Metric | Score |
 |--------|-------|
-| F1-Score (point-based) | 0.92+ |
-| Precision | 0.90+ |
-| Recall | 0.94+ |
-| ROC AUC | 0.96+ |
+| Point-Adjust F1 | **0.964** |
+| Point-Based F1 | 0.906 |
+| Precision | 0.923 |
+| Recall | 0.890 |
+| ROC AUC | 0.974 |
+| Accuracy | 93.0% |
+
+## Features
+
+- **Real NASA SMAP data** — downloads and processes SMAP satellite telemetry from Kaggle
+- **Per-channel anomaly scoring** — identifies which sensors contribute most to detected anomalies for root cause analysis
+- **Adaptive confidence bands** — dynamic threshold that adjusts to local error statistics via rolling window
+- **Point-adjust evaluation** — standard metric for time series anomaly detection (Xu et al., WWW 2018)
+- **Interactive Gradio demo** — explore detection results with adjustable parameters
+- **Multi-channel visualization** — time-series overlay plots with anomaly highlighting
 
 ## Setup
 
@@ -35,11 +47,11 @@ pip install -r requirements.txt
 
 ### 1. Prepare data
 ```bash
-# Generate synthetic telemetry data (for quick testing)
-python data/download_data.py --dataset synthetic
+# Download NASA SMAP data (requires Kaggle account)
+python data/download_data.py --dataset smap-multi
 
-# Or download NASA SMAP/MSL datasets
-python data/download_data.py --dataset SMAP
+# Or generate synthetic telemetry data (for quick testing)
+python data/download_data.py --dataset synthetic
 ```
 
 ### 2. Train the model
@@ -51,7 +63,8 @@ python train.py --epochs 200 --batch-size 32
 ### 3. Detect anomalies
 ```bash
 python detect.py
-python detect.py --threshold-sigma 3.5
+python detect.py --threshold-sigma 2.5
+python detect.py --adaptive --adaptive-window 200
 ```
 
 ### 4. Evaluate
@@ -60,9 +73,9 @@ python evaluate.py
 python evaluate.py --optimize-threshold
 ```
 
-### 5. Visualize
+### 5. Visualize (Gradio demo)
 ```bash
-python visualize.py --channel 0
+python app.py
 ```
 
 ## Configuration
@@ -79,9 +92,10 @@ Edit `configs/config.yaml` to adjust:
 satellite-anomaly-detection/
 ├── model.py            # LSTM-Autoencoder architecture
 ├── train.py            # Training script with early stopping
-├── detect.py           # Anomaly detection + thresholding
-├── evaluate.py         # F1, precision, recall, confusion matrix
+├── detect.py           # Anomaly detection + per-channel scoring + adaptive thresholds
+├── evaluate.py         # Point-adjust F1, precision, recall, ROC AUC
 ├── visualize.py        # Confidence bands + multi-channel plots
+├── app.py              # Interactive Gradio demo
 ├── data/
 │   └── download_data.py    # NASA SMAP/MSL download + synthetic data
 ├── configs/
@@ -95,12 +109,12 @@ satellite-anomaly-detection/
 
 - **PyTorch** — LSTM-Autoencoder model
 - **scikit-learn** — Evaluation metrics, threshold optimization
+- **Gradio** — Interactive web demo
 - **Matplotlib** — Confidence-band and multi-channel visualizations
-- **NumPy/Pandas** — Data processing and windowing
+- **NumPy** — Data processing and windowing
 
 ## Dataset
 
-- **NASA SMAP** (Soil Moisture Active Passive satellite) — 55 telemetry channels
-- **NASA MSL** (Mars Science Laboratory / Curiosity rover) — 27 telemetry channels
-- Both datasets contain expert-labeled anomalies from real mission data
-- Source: [NASA Telemanom](https://github.com/khundman/telemanom)
+- **NASA SMAP** (Soil Moisture Active Passive satellite) — 55 telemetry entities with 25 features each
+- Expert-labeled anomalies from real mission data
+- Source: [NASA Telemanom](https://github.com/khundman/telemanom) via [Kaggle](https://www.kaggle.com/datasets/patrickfleith/nasa-anomaly-detection-dataset-smap-msl)

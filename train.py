@@ -110,18 +110,31 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Load data
+    # Load data — try real NASA SMAP first, then fall back to synthetic
     data_dir = config["data"]["data_dir"]
     train_path = os.path.join(data_dir, "train_data.npy")
     test_path = os.path.join(data_dir, "test_data.npy")
 
     if not os.path.exists(train_path):
-        print("Data not found. Generating synthetic telemetry data...")
-        from data.download_data import generate_synthetic_telemetry
-        train_raw, test_raw, test_labels = generate_synthetic_telemetry()
-        np.save(train_path, train_raw)
-        np.save(test_path, test_raw)
-        np.save(os.path.join(data_dir, "test_labels.npy"), test_labels)
+        print("Data not found. Downloading NASA SMAP multi-channel data...")
+        try:
+            from data.download_data import load_smap_multi_channel
+            train_raw, test_raw, test_labels, ch_names, ch_types = load_smap_multi_channel(
+                max_channels=config["model"]["input_dim"]
+            )
+            np.save(train_path, train_raw)
+            np.save(test_path, test_raw)
+            np.save(os.path.join(data_dir, "test_labels.npy"), test_labels)
+            np.save(os.path.join(data_dir, "channel_names.npy"), np.array(ch_names))
+            np.save(os.path.join(data_dir, "channel_types.npy"), np.array(ch_types))
+        except Exception as e:
+            print(f"Could not load SMAP data: {e}")
+            print("Falling back to synthetic telemetry data...")
+            from data.download_data import generate_synthetic_telemetry
+            train_raw, test_raw, test_labels = generate_synthetic_telemetry()
+            np.save(train_path, train_raw)
+            np.save(test_path, test_raw)
+            np.save(os.path.join(data_dir, "test_labels.npy"), test_labels)
     else:
         train_raw = np.load(train_path)
         test_raw = np.load(test_path)
